@@ -153,9 +153,9 @@ HEURISTICS.append({
       where f.pseudocode = df.pseudocode
         and df.pseudocode is not null
         and f.pseudocode_lines >= 5
-        %POSTFIX%
         and f.name not like 'nullsub%'
         and df.name not like 'nullsub%'
+        %POSTFIX%
       union
      select f.address ea, f.name name1, df.address ea2, df.name name2, 'Equal assembly' description,
             f.pseudocode pseudo1, df.pseudocode pseudo2,
@@ -173,7 +173,7 @@ HEURISTICS.append({
 })
 
 HEURISTICS.append({
-  "name":"Same cleaned up assembly or pseudo-code",
+  "name":"Same cleaned up assembly",
   "category":"Best",
   "ratio":HEUR_TYPE_RATIO,
   "sql":""" select distinct f.address ea, f.name name1, df.address ea2, df.name name2,
@@ -185,11 +185,30 @@ HEURISTICS.append({
              cast(f.md_index as real) md1, cast(df.md_index as real) md2
         from functions f,
              diff.functions df
-       where (f.clean_assembly = df.clean_assembly
-          or f.clean_pseudo = df.clean_pseudo) 
-          and f.pseudocode_lines > 5 and df.pseudocode_lines > 5
-          and f.name not like 'nullsub%'
-          and df.name not like 'nullsub%' %POSTFIX%""",
+       where f.clean_assembly = df.clean_assembly
+         and f.nodes > 3 and df.nodes > 3
+         and f.name not like 'nullsub%'
+         and df.name not like 'nullsub%'""",
+  "flags":HEUR_FLAG_NONE
+})
+
+HEURISTICS.append({
+  "name":"Same cleaned pseudo-code",
+  "category":"Best",
+  "ratio":HEUR_TYPE_RATIO,
+  "sql":""" select distinct f.address ea, f.name name1, df.address ea2, df.name name2,
+             'Same cleaned up assembly or pseudo-code' description,
+             f.pseudocode pseudo1, df.pseudocode pseudo2,
+             f.assembly asm1, df.assembly asm2,
+             f.pseudocode_primes pseudo_primes1, df.pseudocode_primes pseudo_primes2,
+             f.nodes bb1, df.nodes bb2,
+             cast(f.md_index as real) md1, cast(df.md_index as real) md2
+        from functions f,
+             diff.functions df
+       where f.clean_pseudo = df.clean_pseudo
+         and f.pseudocode_lines > 5 and df.pseudocode_lines > 5
+         and f.name not like 'nullsub%'
+         and df.name not like 'nullsub%' %POSTFIX%""",
   "flags":HEUR_FLAG_NONE
 })
 
@@ -293,6 +312,28 @@ HEURISTICS.append({
       where f.md_index = df.md_index
         and df.md_index = shared_mds.md_index
         and f.nodes > 10 %POSTFIX% """,
+  "flags":HEUR_FLAG_NONE
+})
+
+HEURISTICS.append({
+  "name":"Same address and rare constant",
+  "category":"Partial",
+  "ratio":HEUR_TYPE_RATIO_MAX,
+  "sql":"""select distinct f.address ea, f.name name1, df.address ea2, df.name name2, 'Same address and rare constant' description,
+            f.pseudocode pseudo1, df.pseudocode pseudo2,
+            f.assembly asm1, df.assembly asm2,
+            f.pseudocode_primes pseudo_primes1, df.pseudocode_primes pseudo_primes2,
+            f.nodes bb1, df.nodes bb2,
+            cast(f.md_index as real) md1, cast(df.md_index as real) md2
+       from main.constants mc,
+            diff.constants dc,
+            main.functions  f,
+            diff.functions df
+      where mc.constant = dc.constant
+        and  f.id = mc.func_id
+        and df.id = dc.func_id
+        and df.address = f.address""",
+  "min":0.5,
   "flags":HEUR_FLAG_NONE
 })
 
@@ -414,7 +455,9 @@ HEURISTICS.append({
        from functions f,
             diff.functions df
       where f.switches = df.switches
-        and df.switches != '{}' %POSTFIX%""",
+        and df.switches != '{}'
+        and f.nodes > 5 and df.nodes > 5
+        %POSTFIX%""",
   "flags":HEUR_FLAG_SLOW
 })
 
@@ -551,10 +594,10 @@ HEURISTICS.append({
 })
 
 HEURISTICS.append({
-  "name":"Pseudo-code fuzzy hashes",
+  "name":"Pseudo-code fuzzy (normal)",
   "category":"Partial",
   "ratio":HEUR_TYPE_RATIO,
-  "sql":"""select distinct f.address ea, f.name name1, df.address ea2, df.name name2, 'Pseudo-code fuzzy hashes' description,
+  "sql":"""select distinct f.address ea, f.name name1, df.address ea2, df.name name2, 'Pseudo-code fuzzy (normal)' description,
             f.pseudocode pseudo1, df.pseudocode pseudo2,
             f.assembly asm1, df.assembly asm2,
             f.pseudocode_primes pseudo_primes1, df.pseudocode_primes pseudo_primes2,
@@ -563,9 +606,41 @@ HEURISTICS.append({
        from functions f,
             diff.functions df
       where df.pseudocode_hash1 = f.pseudocode_hash1
-         or df.pseudocode_hash2 = f.pseudocode_hash2
-         or df.pseudocode_hash3 = f.pseudocode_hash3 
-         %POSTFIX%""",
+        and f.instructions > 5 and df.instructions > 5 """,
+  "flags":HEUR_FLAG_SLOW
+})
+
+HEURISTICS.append({
+  "name":"Pseudo-code fuzzy (mixed)",
+  "category":"Partial",
+  "ratio":HEUR_TYPE_RATIO,
+  "sql":"""select distinct f.address ea, f.name name1, df.address ea2, df.name name2, 'Pseudo-code fuzzy (mixed)' description,
+            f.pseudocode pseudo1, df.pseudocode pseudo2,
+            f.assembly asm1, df.assembly asm2,
+            f.pseudocode_primes pseudo_primes1, df.pseudocode_primes pseudo_primes2,
+            f.nodes bb1, df.nodes bb2,
+            cast(f.md_index as real) md1, cast(df.md_index as real) md2
+       from functions f,
+            diff.functions df
+      where df.pseudocode_hash3 = f.pseudocode_hash3
+        and f.instructions > 5 and df.instructions > 5 """,
+  "flags":HEUR_FLAG_SLOW
+})
+
+HEURISTICS.append({
+  "name":"Pseudo-code fuzzy (reverse)",
+  "category":"Partial",
+  "ratio":HEUR_TYPE_RATIO,
+  "sql":"""select distinct f.address ea, f.name name1, df.address ea2, df.name name2, 'Pseudo-code fuzzy (reverse)' description,
+            f.pseudocode pseudo1, df.pseudocode pseudo2,
+            f.assembly asm1, df.assembly asm2,
+            f.pseudocode_primes pseudo_primes1, df.pseudocode_primes pseudo_primes2,
+            f.nodes bb1, df.nodes bb2,
+            cast(f.md_index as real) md1, cast(df.md_index as real) md2
+       from functions f,
+            diff.functions df
+      where df.pseudocode_hash2 = f.pseudocode_hash2
+        and f.instructions > 5 and df.instructions > 5 """,
   "flags":HEUR_FLAG_SLOW
 })
 
@@ -582,7 +657,8 @@ HEURISTICS.append({
        from functions f,
             diff.functions df
       where df.pseudocode_hash1 = f.pseudocode_hash1
-            %POSTFIX%""",
+        and f.instructions > 5
+        and df.instructions > 5 """,
   "flags":HEUR_FLAG_NONE
 })
 
@@ -628,10 +704,10 @@ HEURISTICS.append({
 })
 
 HEURISTICS.append({
-  "name":"Partial pseudo-code fuzzy hash",
+  "name":"Partial pseudo-code fuzzy hash (normal)",
   "category":"Partial",
   "ratio":HEUR_TYPE_RATIO_MAX,
-  "sql":"""  select distinct f.address ea, f.name name1, df.address ea2, df.name name2, 'Partial pseudo-code fuzzy hash' description,
+  "sql":"""  select distinct f.address ea, f.name name1, df.address ea2, df.name name2, 'Partial pseudo-code fuzzy hash (normal)' description,
               f.pseudocode pseudo1, df.pseudocode pseudo2,
               f.assembly asm1, df.assembly asm2,
               f.pseudocode_primes pseudo_primes1, df.pseudocode_primes pseudo_primes2,
@@ -640,9 +716,44 @@ HEURISTICS.append({
          from functions f,
               diff.functions df
         where substr(df.pseudocode_hash1, 1, 16) = substr(f.pseudocode_hash1, 1, 16)
-           or substr(df.pseudocode_hash2, 1, 16) = substr(f.pseudocode_hash2, 1, 16)
-           or substr(df.pseudocode_hash3, 1, 16) = substr(f.pseudocode_hash3, 1, 16)
-           %POSTFIX%""",
+          and f.nodes > 5 and df.nodes > 5""",
+  "min":0.5,
+  "flags":HEUR_FLAG_SLOW
+})
+
+
+HEURISTICS.append({
+  "name":"Partial pseudo-code fuzzy hash (reverse)",
+  "category":"Partial",
+  "ratio":HEUR_TYPE_RATIO_MAX,
+  "sql":"""  select distinct f.address ea, f.name name1, df.address ea2, df.name name2, 'Partial pseudo-code fuzzy hash (reverse)' description,
+              f.pseudocode pseudo1, df.pseudocode pseudo2,
+              f.assembly asm1, df.assembly asm2,
+              f.pseudocode_primes pseudo_primes1, df.pseudocode_primes pseudo_primes2,
+              f.nodes bb1, df.nodes bb2,
+              cast(f.md_index as real) md1, cast(df.md_index as real) md2
+         from functions f,
+              diff.functions df
+        where substr(df.pseudocode_hash2, 1, 16) = substr(f.pseudocode_hash2, 1, 16)
+          and f.nodes > 5 and df.nodes > 5""",
+  "min":0.5,
+  "flags":HEUR_FLAG_SLOW
+})
+
+HEURISTICS.append({
+  "name":"Partial pseudo-code fuzzy hash (mixed)",
+  "category":"Partial",
+  "ratio":HEUR_TYPE_RATIO_MAX,
+  "sql":"""  select distinct f.address ea, f.name name1, df.address ea2, df.name name2, 'Partial pseudo-code fuzzy hash (mixed)' description,
+              f.pseudocode pseudo1, df.pseudocode pseudo2,
+              f.assembly asm1, df.assembly asm2,
+              f.pseudocode_primes pseudo_primes1, df.pseudocode_primes pseudo_primes2,
+              f.nodes bb1, df.nodes bb2,
+              cast(f.md_index as real) md1, cast(df.md_index as real) md2
+         from functions f,
+              diff.functions df
+        where substr(df.pseudocode_hash3, 1, 16) = substr(f.pseudocode_hash3, 1, 16)
+          and f.nodes > 5 and df.nodes > 5""",
   "min":0.5,
   "flags":HEUR_FLAG_SLOW
 })
@@ -684,6 +795,7 @@ HEURISTICS.append({
           and f.cyclomatic_complexity = df.cyclomatic_complexity
           and f.cyclomatic_complexity >= 15
           and df.names != '{}'
+          and f.nodes > 5 and df.nodes > 5
           %POSTFIX%""",
   "flags":HEUR_FLAG_SLOW
 })
@@ -786,7 +898,7 @@ HEURISTICS.append({
       where f.nodes = df.nodes
         and f.edges = df.edges
         and f.strongly_connected = df.strongly_connected
-        and df.nodes > 4
+        and f.nodes > 5 and df.nodes > 5
         %POSTFIX%""",
   "flags":HEUR_FLAG_NONE
 })
@@ -968,7 +1080,7 @@ HEURISTICS.append({
          and f.names != '{}'
          and f.strongly_connected_spp = df.strongly_connected_spp
          and f.strongly_connected_spp > 0
-         %POSTFIX% """,
+         and f.nodes > 5 and df.nodes > 5 """,
   "min":0.49,
   "flags":HEUR_FLAG_UNRELIABLE
 })
@@ -1220,7 +1332,6 @@ def check_heuristics_ratio():
 #-------------------------------------------------------------------------------
 def check_mandatory_fields():
   mandatory = set(["name", "ratio", "category", "sql", "flags"])
-  fields = set()
   for heur in HEURISTICS:
     for field in mandatory:
       if field not in heur.keys():

@@ -25,6 +25,7 @@ import decimal
 import difflib
 import sqlite3
 import traceback
+import threading
 from hashlib import md5
 
 import diaphora
@@ -81,15 +82,25 @@ LITTLE_ORANGE = 0x026AFD
 
 #-----------------------------------------------------------------------
 def log(msg):
-  Message("[%s] %s\n" % (time.asctime(), msg))
+  # Horrible workaround for an IDA 7.1 and lower versions bug
+  show = False
+  if IDA_SDK_VERSION > 710:
+    show = True
+  elif IDA_SDK_VERSION <= 710:
+    show = isinstance(threading.current_thread(), threading._MainThread)
+
+  if show:
+    Message("[%s] %s\n" % (time.asctime(), msg))
 
 #-----------------------------------------------------------------------
-def log_refresh(msg, show=False):
+def log_refresh(msg, show=False, do_log=True):
   if show:
     show_wait_box(msg)
   else:
     replace_wait_box(msg)
-  log(msg)
+
+  if do_log:
+    log(msg)
 
 #-----------------------------------------------------------------------
 # TODO: FIX hack
@@ -581,6 +592,9 @@ class CIDABinDiff(diaphora.CBinDiff):
 
     return True
 
+  def refresh(self):
+    idaapi.request_refresh(0xFFFFFFFF)
+
   def show_choosers(self, force=False):
     if len(self.best_chooser.items) > 0:
       self.best_chooser.show(force)
@@ -991,7 +1005,7 @@ class CIDABinDiff(diaphora.CBinDiff):
         tl.ea = ea1
         tl.itp = mitp
         comment = mcmt
-        ret = cfunc.set_user_cmt(tl, comment)
+        cfunc.set_user_cmt(tl, comment)
         cfunc.save_user_cmts()
 
     tmp_ea = None
@@ -1006,6 +1020,11 @@ class CIDABinDiff(diaphora.CBinDiff):
           MakeName(tmp_ea, name)
           set_type = False
       else:
+        # If it's an object, we don't want to rename the offset, we want to
+        # rename the true global variable.
+        if is_off(get_full_flags(tmp_ea), OPND_ALL):
+          tmp_ea = next(DataRefsFrom(tmp_ea), tmp_ea)
+
         MakeName(tmp_ea, name)
         set_type = True
     else:
@@ -1110,9 +1129,6 @@ class CIDABinDiff(diaphora.CBinDiff):
             address1 = json.loads(diff_rows[0]["assembly_addrs"])
             address2 = json.loads(diff_rows[1]["assembly_addrs"])
 
-            matches = {}
-            to_line = None
-            change_line = None
             diff_list = difflib._mdiff(lines1.splitlines(1), lines2.splitlines(1))
             for x in diff_list:
               left, right, ignore = x
@@ -2128,6 +2144,7 @@ def _diff_or_export(use_ui, **options):
 
       if exported:
         log("Database exported. Took {} seconds".format(time.time() - t0))
+        hide_wait_box()
 
     if opts.file_in != "":
       if os.getenv("DIAPHORA_PROFILE") is not None:
@@ -2241,6 +2258,12 @@ class CHtmlDiff:
         rtxt = self._stop_wasting_space(rtxt)
         ltxt = self._trunc(ltxt, changed).replace(" ", "&nbsp;")
         rtxt = self._trunc(rtxt, changed).replace(" ", "&nbsp;")
+
+        ltxt = ltxt.replace("<", "&lt;")
+        ltxt = ltxt.replace(">", "&gt;")
+        rtxt = rtxt.replace("<", "&lt;")
+        rtxt = rtxt.replace(">", "&gt;")
+
         row = self._row_template % (str(lno), ltxt, str(rno), rtxt)
         rows.append(row)
 
@@ -2370,6 +2393,11 @@ def main():
       bd.project_script = project_script
     bd.use_decompiler_always = use_decompiler
 
+    bd.exclude_library_thunk = bd.get_value_for("exclude_library_thunk", bd.exclude_library_thunk)
+    bd.ida_subs = bd.get_value_for("ida_subs", bd.ida_subs)
+    bd.ignore_sub_names = bd.get_value_for("ignore_sub_names", bd.ignore_sub_names)
+    bd.function_summaries_only = bd.get_value_for("function_summaries_only", bd.function_summaries_only)
+
     try:
       bd.export()
     except KeyboardInterrupt:
@@ -2382,3 +2410,4 @@ def main():
 
 if __name__ == "__main__":
   main()
+

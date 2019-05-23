@@ -1,7 +1,7 @@
 # Diaphora
 Diaphora (διαφορά, Greek for 'difference') is a program diffing plugin for IDA, similar to Zynamics Bindiff or other FOSS counterparts like YaDiff, DarunGrim, TurboDiff, etc... It was released during SyScan 2015.
 
-It works with IDA 6.9 to 7.2. If you are looking for Radare2 support you can [check this fork](https://github.com/radare/diaphora). Support for Binary Ninja is also planned (as soon as they finish adding support for GUI based plugins).
+It works with IDA 6.9 to 7.2. Support for Ghidra is in development. Support for Binary Ninja is also planned but will come after Ghidra's port. If you are looking for Radare2 support you can [check this very old fork](https://github.com/radare/diaphora).
 
 For more details, please check the tutorial in the "doc" directory.
 
@@ -39,6 +39,7 @@ These are some screenshots of Diaphora diffing the [Microsoft bulletin MS15-050]
 
 ![Diaphora diffing a LuaBot, matches and pseudo-code](https://1.bp.blogspot.com/-O5UjSOyjCgg/V5byA-ozXVI/AAAAAAAABaY/yRTMDTSD9zI0mSy4AsHN21ZYf_YvctnkwCLcB/s1600/evs-compile.png)
 
-Here is a screenshot of Diaphora diffing [iBoot from iOS 10.3.3 against iOS 11.0](http://matteyeux.me/hacking/2018/04/04/diaphora-diff-and-ida.html):
 
-![Diaphora diffing iBoot from iOS 10.3.3 against iOS 11.0](http://matteyeux.me/images/newgraph.PNG)
+Here is a screenshot of Diaphora diffing [iBoot from iOS 10.3.3 against iOS 11.0](https://blog.matteyeux.com/hacking/2018/04/04/diaphora-diff-and-ida.html):
+
+![Diaphora diffing iBoot from iOS 10.3.3 against iOS 11.0](https://blog.matteyeux.com/images/newgraph.PNG)
