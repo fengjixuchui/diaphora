@@ -1392,7 +1392,6 @@ or selecting Edit -> Plugins -> Diaphora - Show results""")
 
     if demangled_name is not None:
       name = demangled_name
-      true_name = name
 
     if self.hooks is not None:
       ret = self.hooks.before_export_function(f, name)
@@ -2143,7 +2142,7 @@ def _diff_or_export(use_ui, **options):
           os.remove("%s-crash" % opts.file_out)
 
       if exported:
-        log("Database exported. Took {} seconds".format(time.time() - t0))
+        log("Database exported. Took {} seconds.".format(time.time() - t0))
         hide_wait_box()
 
     if opts.file_in != "":
